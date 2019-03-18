@@ -9,14 +9,10 @@ import com.ytzl.gotrip.service.GotripUserService;
 import com.ytzl.gotrip.utils.common.*;
 import com.ytzl.gotrip.utils.exception.GotripException;
 import com.ytzl.gotrip.vo.userinfo.ItripUserVO;
-import io.swagger.annotations.ApiOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.annotation.Resource;
 import java.util.HashMap;
@@ -24,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-@Service("gotripUserService")
+@Service(value = "gotripUserService")
 public class GotripUserServiceImpl implements GotripUserService {
 
     private Logger LOG = LoggerFactory.getLogger(GotripUserServiceImpl.class);
@@ -33,11 +29,13 @@ public class GotripUserServiceImpl implements GotripUserService {
     @Reference
     private RpcGotripUserService rpcGotripUserService;
 
-    @Reference
+    @Reference(timeout = 10000,retries = 0)
     private RpcSendMessageService rpcSendMessageService;
 
     @Resource
     private RedisUtils redisUtils;
+
+
 
     @Override
     public GotripUser findByUserCode(String userCode) throws Exception {
@@ -73,7 +71,7 @@ public class GotripUserServiceImpl implements GotripUserService {
         // 构建用户信息
         GotripUser gotripUser = new GotripUser();
         BeanUtils.copyProperties(itripUserVO,gotripUser);
-        gotripUser.setActivated(0);
+        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE);
 
         // 密码加密
         String md5UserPassword = DigestUtil.hmacSign(gotripUser.getUserPassword());
@@ -115,7 +113,7 @@ public class GotripUserServiceImpl implements GotripUserService {
         }
 
         // 激活用户
-        gotripUser.setActivated(1);
+        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_ENABLE);
         gotripUser.setUserType(0);
         gotripUser.setFlatID(gotripUser.getId());
         rpcGotripUserService.updateGotripUser(gotripUser);
@@ -125,10 +123,75 @@ public class GotripUserServiceImpl implements GotripUserService {
 
     }
 
+    /**
+     * 通过邮箱号注册
+     *
+     * @param itripUserVO 用户数据
+     * @throws Exception
+     */
+    @Override
+    public void registerByEmail(ItripUserVO itripUserVO) throws Exception {
+        LOG.info("----------------------》 进入方法：registerByEmail 准备注册邮箱 ");
+        // 数据校验
+        checkRegisterDate(itripUserVO);
+        // 验证邮箱格式是否正确
+        if (!validEmail(itripUserVO.getUserCode())) {
+            throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        // 判断用户是否存在
+        GotripUser user = findByUserCode(itripUserVO.getUserCode());
+        if (EmptyUtils.isNotEmpty(user)) {
+            throw new GotripException("邮箱账号已存在！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        // 构建用户信息
+        GotripUser gotripUser = new GotripUser();
+        BeanUtils.copyProperties(itripUserVO,gotripUser);
+        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE);
+        // 密码加密
+        String hmacSign = DigestUtil.hmacSign(gotripUser.getUserPassword());
+        gotripUser.setUserPassword(hmacSign);
+        // 数据入库
+        Integer resultSize = rpcGotripUserService.insertGotripUser(gotripUser);
+        LOG.info("----------------------》 储存数据库中成功！ ");
+        // 发送短信验证码
+        // 构建四位验证码
+        int code = DigestUtil.randomCode();
+        rpcSendMessageService.sendMessageEmail(gotripUser.getUserCode(),""+code);
+        //this.sendMessageEmail(gotripUser.getUserCode(),""+code);
+        LOG.info("----------------------》 发送邮件成功！ ");
+        // 将验证码保存到redis中
+        String key = Constants.RedisKeyPrefix.ACTIVATION_EMAIL_PREFIX + itripUserVO.getUserCode();
+        LOG.info("----------------------》 key: "+key);
+        redisUtils.set(key,""+code,60*3);
+    }
+
 
     @Override
-    public void validateEmail(String user, String code) {
+    public void validateEmail(String user, String code) throws Exception{
+        // 验证邮箱格式是否正确
+        if (!validEmail(user)) {
+            throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        // 判断用户是否存在
+        GotripUser gotripUser = findByUserCode(user);
+        if (EmptyUtils.isEmpty(gotripUser)) {
+            throw new GotripException("邮箱账号不存在！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        // 获取redis中存储的短信验证码
+        String key = Constants.RedisKeyPrefix.ACTIVATION_EMAIL_PREFIX + user;
+        String cacheCode = (String) redisUtils.get(key);
+        if (EmptyUtils.isEmpty(cacheCode)) {
+            throw new GotripException("激活码已失效，请重新发送！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }else if(!cacheCode.equals(code)){
+            throw new GotripException("激活码错误，请重新输入！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        // 激活用户
+        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE); // 修改激活状态为1
+        gotripUser.setUserType(0); // 用户类型
+        gotripUser.setFlatID(gotripUser.getId()); // 平台Id
+        rpcGotripUserService.updateGotripUser(gotripUser);// 修改
 
+        LOG.info("-------------->   用户[{}]激活成功！",user);
     }
 
     /**
@@ -177,6 +240,38 @@ public class GotripUserServiceImpl implements GotripUserService {
         String regex="^1[356789]{1}\\d{9}$";
         return Pattern.compile(regex).matcher(phone).find();
     }
+
+
+
+    // 下面可删除--------------------------------------------测试部分
+
+   /* @Resource
+    MailSender mailSender;
+
+    public void sendMessageEmail(String to, String verifyCode) {
+        System.out.println("进入sendMessageEmail");
+        SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
+
+        String from = "861024581@qq.com";
+        String subject = "爱旅行：";
+        String content = "用户您好，验证码：" + verifyCode;
+
+        simpleMailMessage.setFrom(from);
+        simpleMailMessage.setTo(to);
+        simpleMailMessage.setSubject(subject);
+        simpleMailMessage.setText(content);
+        // mailSender
+
+        System.out.println("准备发送邮件");
+        mailSender.send(simpleMailMessage);
+        System.out.println("发送邮件成功");
+
+
+    }*/
+
+
+
+
 
 
 

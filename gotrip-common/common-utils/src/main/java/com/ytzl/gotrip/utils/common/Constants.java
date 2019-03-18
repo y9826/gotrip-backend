@@ -17,5 +17,15 @@ public class Constants {
     public static class RedisKeyPrefix{
         // 手机验证码前缀
         public static final String ACTIVATION_MOBILE_PREFIX="activation_mobile:";
+        // 邮箱验证码
+        public static final String ACTIVATION_EMAIL_PREFIX="activation_email:";
+    }
+
+
+    public static class UserActivate{
+        // 启用
+        public static final int USER_ACTIVATE_ENABLE = 1;
+        // 禁用
+        public static final int USER_ACTIVATE_DISABLE = 0;
     }
 }

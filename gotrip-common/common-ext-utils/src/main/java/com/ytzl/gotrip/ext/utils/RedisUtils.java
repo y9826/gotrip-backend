@@ -41,6 +41,15 @@ public class RedisUtils {
         return true;
     }
 
+    public boolean expire( String key, long seconds) {
+        return redisTemplate.execute((RedisCallback<Boolean>) redisConnection -> {
+            StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
+            byte keyByte[] = stringRedisSerializer.serialize(key);
+            redisConnection.expire(keyByte,seconds);
+            return true;
+        });
+    }
+
     /**
      * set key and value to redis
      *
@@ -49,7 +58,7 @@ public class RedisUtils {
      * @param value
      * @return
      */
-    public boolean set(final String key, final String value, final long seconds) {
+    public boolean set(final String key, final String value,final long seconds) {
         return redisTemplate.execute((RedisCallback<Boolean>) redisConnection -> {
             StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
             byte keyByte[] = stringRedisSerializer.serialize(key);

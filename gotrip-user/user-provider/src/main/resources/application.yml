@@ -14,6 +14,34 @@ spring:
     appname: user-provider
     registry: zookeeper://127.0.0.1:2181
     port: 28801
+  mail:
+    host: smtp.163.com    # 发送邮件服务器
+    username: z8619826@163.com  # QQ邮箱
+    password: zhy1999   # 客户端授权码 wmmvfqpigiedbcba
+    default-encoding: utf-8
+#    port: 995
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+#            required: true
+#          socketFactory:
+#            class: javax.net.ssl.SSLSocketFactory
+#            port: 465
+
+
+#            fallback: false
+#    protocol: smtp #发送邮件协议
+#    properties.mail.smtp.auth: true
+#    properties.mail.smtp.port: 465 #端口号465或587
+#    properties.mail.display.sendmail: Javen #可以任意
+#    properties.mail.display.sendname: Spring Boot Guide Email #可以任意
+#    properties.mail.smtp.starttls.enable: true
+#    properties.mail.smtp.starttls.required: true
+#    properties.mail.smtp.ssl.enable: true
+#    from: 861024581@qq.com #与上面的username保持一致
 
 mybatis:
   mapper-locations: mapper-xml/*Mapper.xml
@@ -22,6 +50,7 @@ logging:
   level:
     com.ytzl.gotrip.mapper: debug
 
+
 #    融联短信配置
 sms:
   serverIP: app.cloopen.com
@@ -29,3 +58,6 @@ sms:
   accountSid: 8aaf0708697b6beb01697ef4d5500115
   accountToken: 85de131ae2c444f694563452b392a3ec
   appId: 8aaf0708697b6beb01697ef4d5c4011c
+
+
+

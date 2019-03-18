@@ -46,6 +46,25 @@ public class GotripUserController {
         gotripUserService.registerByPhone(itripUserVO);
         return DtoUtil.returnDataSuccess("注册成功");
     }
+
+    @ApiOperation(value = "邮箱激活")
+    @PutMapping("/activate")
+    public Dto validateEmail(@ApiParam(value = "登录邮箱") @RequestParam String user,
+                             @ApiParam(value = "邮箱激活码") @RequestParam String code) throws Exception{
+        // 手机号激活
+        gotripUserService.validateEmail(user,code);
+        return DtoUtil.returnDataSuccess("激活成功");
+    }
+
+    @ApiOperation(value = "邮箱号注册")
+    @PostMapping("/register")
+    public Dto registerByEmail(
+            @RequestBody ItripUserVO itripUserVO) throws Exception {
+        System.out.println("进入邮箱注册Controller");
+        gotripUserService.registerByEmail(itripUserVO);
+        return DtoUtil.returnDataSuccess("注册成功");
+    }
+
 }
 
 

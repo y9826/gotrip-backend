@@ -1,0 +1,571 @@
+Index: gotrip-user/user-provider/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-provider/pom.xml	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-provider/pom.xml	(date 1552666108700)
+@@ -31,6 +31,12 @@
+             <version>2.6.3</version>
+         </dependency>
+ 
++<!--
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-mail</artifactId>
++        </dependency>-->
++
+ 
+ 
+ 
+Index: gotrip-common/common-utils/src/main/java/com/ytzl/gotrip/utils/common/Constants.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-common/common-utils/src/main/java/com/ytzl/gotrip/utils/common/Constants.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-common/common-utils/src/main/java/com/ytzl/gotrip/utils/common/Constants.java	(date 1552872890136)
+@@ -17,5 +17,15 @@
+     public static class RedisKeyPrefix{
+         // 手机验证码前缀
+         public static final String ACTIVATION_MOBILE_PREFIX="activation_mobile:";
++        // 邮箱验证码
++        public static final String ACTIVATION_EMAIL_PREFIX="activation_email:";
++    }
++
++
++    public static class UserActivate{
++        // 启用
++        public static final int USER_ACTIVATE_ENABLE = 1;
++        // 禁用
++        public static final int USER_ACTIVATE_DISABLE = 0;
+     }
+ }
+Index: gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/impl/GotripUserServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/impl/GotripUserServiceImpl.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/impl/GotripUserServiceImpl.java	(date 1552873011608)
+@@ -9,14 +9,10 @@
+ import com.ytzl.gotrip.utils.common.*;
+ import com.ytzl.gotrip.utils.exception.GotripException;
+ import com.ytzl.gotrip.vo.userinfo.ItripUserVO;
+-import io.swagger.annotations.ApiOperation;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.beans.BeanUtils;
+ import org.springframework.stereotype.Service;
+-import org.springframework.web.bind.annotation.PostMapping;
+-import org.springframework.web.bind.annotation.RequestBody;
+-import org.springframework.web.bind.annotation.RequestParam;
+ 
+ import javax.annotation.Resource;
+ import java.util.HashMap;
+@@ -24,7 +20,7 @@
+ import java.util.Map;
+ import java.util.regex.Pattern;
+ 
+-@Service("gotripUserService")
++@Service(value = "gotripUserService")
+ public class GotripUserServiceImpl implements GotripUserService {
+ 
+     private Logger LOG = LoggerFactory.getLogger(GotripUserServiceImpl.class);
+@@ -39,6 +35,8 @@
+     @Resource
+     private RedisUtils redisUtils;
+ 
++
++
+     @Override
+     public GotripUser findByUserCode(String userCode) throws Exception {
+ 
+@@ -73,7 +71,7 @@
+         // 构建用户信息
+         GotripUser gotripUser = new GotripUser();
+         BeanUtils.copyProperties(itripUserVO,gotripUser);
+-        gotripUser.setActivated(0);
++        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE);
+ 
+         // 密码加密
+         String md5UserPassword = DigestUtil.hmacSign(gotripUser.getUserPassword());
+@@ -115,7 +113,7 @@
+         }
+ 
+         // 激活用户
+-        gotripUser.setActivated(1);
++        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_ENABLE);
+         gotripUser.setUserType(0);
+         gotripUser.setFlatID(gotripUser.getId());
+         rpcGotripUserService.updateGotripUser(gotripUser);
+@@ -125,10 +123,75 @@
+ 
+     }
+ 
+-
++    /**
++     * 通过邮箱号注册
++     *
++     * @param itripUserVO 用户数据
++     * @throws Exception
++     */
+     @Override
+-    public void validateEmail(String user, String code) {
++    public void registerByEmail(ItripUserVO itripUserVO) throws Exception {
++        LOG.info("----------------------》 进入方法：registerByEmail 准备注册邮箱 ");
++        // 数据校验
++        checkRegisterDate(itripUserVO);
++        // 验证邮箱格式是否正确
++        if (!validEmail(itripUserVO.getUserCode())) {
++            throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }
++        // 判断用户是否存在
++        GotripUser user = findByUserCode(itripUserVO.getUserCode());
++        if (EmptyUtils.isNotEmpty(user)) {
++            throw new GotripException("邮箱账号已存在！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }
++        // 构建用户信息
++        GotripUser gotripUser = new GotripUser();
++        BeanUtils.copyProperties(itripUserVO,gotripUser);
++        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE);
++        // 密码加密
++        String hmacSign = DigestUtil.hmacSign(gotripUser.getUserPassword());
++        gotripUser.setUserPassword(hmacSign);
++        // 数据入库
++        Integer resultSize = rpcGotripUserService.insertGotripUser(gotripUser);
++        LOG.info("----------------------》 储存数据库中成功！ ");
++        // 发送短信验证码
++        // 构建四位验证码
++        int code = DigestUtil.randomCode();
++        rpcSendMessageService.sendMessageEmail(gotripUser.getUserCode(),""+code);
++        //this.sendMessageEmail(gotripUser.getUserCode(),""+code);
++        LOG.info("----------------------》 发送邮件成功！ ");
++        // 将验证码保存到redis中
++        String key = Constants.RedisKeyPrefix.ACTIVATION_EMAIL_PREFIX + itripUserVO.getUserCode();
++        LOG.info("----------------------》 key: "+key);
++        redisUtils.set(key,""+code,60*3);
++    }
++
+ 
++    @Override
++    public void validateEmail(String user, String code) throws Exception{
++        // 验证邮箱格式是否正确
++        if (!validEmail(user)) {
++            throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }
++        // 判断用户是否存在
++        GotripUser gotripUser = findByUserCode(user);
++        if (EmptyUtils.isEmpty(gotripUser)) {
++            throw new GotripException("邮箱账号不存在！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }
++        // 获取redis中存储的短信验证码
++        String key = Constants.RedisKeyPrefix.ACTIVATION_EMAIL_PREFIX + user;
++        String cacheCode = (String) redisUtils.get(key);
++        if (EmptyUtils.isEmpty(cacheCode)) {
++            throw new GotripException("激活码已失效，请重新发送！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }else if(!cacheCode.equals(code)){
++            throw new GotripException("激活码错误，请重新输入！",ErrorCode.AUTH_PARAMETER_ERROR);
++        }
++        // 激活用户
++        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE); // 修改激活状态为1
++        gotripUser.setUserType(0); // 用户类型
++        gotripUser.setFlatID(gotripUser.getId()); // 平台Id
++        rpcGotripUserService.updateGotripUser(gotripUser);// 修改
++
++        LOG.info("-------------->   用户[{}]激活成功！",user);
+     }
+ 
+     /**
+@@ -180,5 +243,37 @@
+ 
+ 
+ 
++    // 下面可删除--------------------------------------------测试部分
++
++   /* @Resource
++    MailSender mailSender;
++
++    public void sendMessageEmail(String to, String verifyCode) {
++        System.out.println("进入sendMessageEmail");
++        SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
++
++        String from = "861024581@qq.com";
++        String subject = "爱旅行：";
++        String content = "用户您好，验证码：" + verifyCode;
++
++        simpleMailMessage.setFrom(from);
++        simpleMailMessage.setTo(to);
++        simpleMailMessage.setSubject(subject);
++        simpleMailMessage.setText(content);
++        // mailSender
++
++        System.out.println("准备发送邮件");
++        mailSender.send(simpleMailMessage);
++        System.out.println("发送邮件成功");
++
++
++    }*/
++
++
++
++
++
++
++
+ 
+ }
+Index: gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/GotripUserService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/GotripUserService.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/service/GotripUserService.java	(date 1552657814720)
+@@ -6,6 +6,8 @@
+ 
+ public interface GotripUserService {
+ 
++
++
+     /**
+      * 根据用户登陆账号查询用户信息
+      *
+@@ -29,11 +31,19 @@
+      */
+     void validatePhone(String user, String code) throws Exception;
+ 
++    /**
++     * 通过邮箱号注册
++     *
++     * @param itripUserVO 用户数据
++     * @throws Exception
++     */
++    void registerByEmail(ItripUserVO itripUserVO) throws Exception;
++
+     /**
+      * 邮箱账号激活
+      *
+      * @param user 登陆账号
+      * @param code 激活码
+      */
+-    void validateEmail(String user, String code);
++    void validateEmail(String user, String code) throws Exception;
+ }
+Index: gotrip-user/user-provider/src/main/java/com/ytzl/gotrip/rpc/service/RpcSendMessageServiceIml.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-provider/src/main/java/com/ytzl/gotrip/rpc/service/RpcSendMessageServiceIml.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-provider/src/main/java/com/ytzl/gotrip/rpc/service/RpcSendMessageServiceIml.java	(date 1552869686336)
+@@ -4,6 +4,17 @@
+ import com.cloopen.rest.sdk.CCPRestSmsSDK;
+ import com.ytzl.gotrip.properties.SmsProperties;
+ import com.ytzl.gotrip.rpc.api.RpcSendMessageService;
++import com.ytzl.gotrip.test.yibu.EmailUtil;
++import com.ytzl.gotrip.utils.exception.GotripException;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.annotation.EnableAspectJAutoProxy;
++import org.springframework.mail.MailException;
++import org.springframework.mail.MailMessage;
++import org.springframework.mail.MailSender;
++import org.springframework.mail.SimpleMailMessage;
++import org.springframework.mail.javamail.JavaMailSender;
++import org.springframework.scheduling.annotation.Async;
++import org.springframework.scheduling.annotation.EnableAsync;
+ import org.springframework.stereotype.Component;
+ 
+ import javax.annotation.Resource;
+@@ -12,11 +23,21 @@
+ 
+ @Component
+ @Service(interfaceClass = RpcSendMessageService.class)
++//@EnableAsync
+ public class RpcSendMessageServiceIml implements RpcSendMessageService {
+ 
+     @Resource
+     private SmsProperties smsProperties;
+ 
++    @Autowired
++    private JavaMailSender javaMailSender;
++
++
++    private SimpleMailMessage simpleMailMessage;
++
++    @Resource
++    private MailSender mailSender;
++
+     @Override
+     public void sendMessage(String phone, String templateId, String code) {
+         HashMap<String, Object> result = null;
+@@ -27,7 +48,7 @@
+         // 初始化主账号名称和主账号令牌，登陆云通讯网站后，可在控制首页中看到开发者主账号ACCOUNT SID和主账号令牌AUTH TOKEN。
+         restAPI.setAppId(smsProperties.getAppId());
+         // 请使用管理控制台中已创建应用的APPID。
+-        result = restAPI.sendTemplateSMS(phone , templateId, new String[]{code, "三"});
++        result = restAPI.sendTemplateSMS(phone, templateId, new String[]{code, "三"});
+         System.out.println("SDKTestGetSubAccounts result=" + result);
+         if ("000000".equals(result.get("statusCode"))) {
+             //正常返回输出data包体信息（map）
+@@ -43,5 +64,42 @@
+         }
+     }
+ 
++    /**
++     * 发送邮件
++     *
++     * @param to         邮件收件人
++     * @param verifyCode 邮件验证码
++     */
++    @Override
++    //@Async
++    public void sendMessageEmail(String to, String verifyCode) {
++        System.out.println("进入sendMessageEmail");
++        simpleMailMessage = new SimpleMailMessage();
++
++        String from = "861024581@qq.com";
++        String subject = "爱旅行：";
++        String content = "用户您好，验证码：" + verifyCode;
++
++        simpleMailMessage.setFrom(from);
++        System.out.println(from+" 1");
++        simpleMailMessage.setTo(to);
++        simpleMailMessage.setSubject(subject);
++        simpleMailMessage.setText(content);
++        /*mailSender*/
++
++        System.out.println("准备发送邮件");
++        mailSender.send(simpleMailMessage);
++        System.out.println(simpleMailMessage.getFrom() + " -----------1");
++        System.out.println(simpleMailMessage.getText() + " -----------2");
++        System.out.println("发送邮件成功");
++
++
++    }
++
++
++
++
++
+ 
+ }
++
+Index: gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/controller/GotripUserController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/controller/GotripUserController.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/controller/GotripUserController.java	(date 1552660072056)
+@@ -46,6 +46,25 @@
+         gotripUserService.registerByPhone(itripUserVO);
+         return DtoUtil.returnDataSuccess("注册成功");
+     }
++
++    @ApiOperation(value = "邮箱激活")
++    @PutMapping("/validateemail")
++    public Dto validateEmail(@ApiParam(value = "登录邮箱") @RequestParam String user,
++                             @ApiParam(value = "邮箱激活码") @RequestParam String code) throws Exception{
++        // 手机号激活
++        gotripUserService.validateEmail(user,code);
++        return DtoUtil.returnDataSuccess("激活成功");
++    }
++
++    @ApiOperation(value = "邮箱号注册")
++    @PostMapping("/registerbyemail")
++    public Dto registerByEmail(
++            @RequestBody ItripUserVO itripUserVO) throws Exception {
++        System.out.println("进入邮箱注册Controller");
++        gotripUserService.registerByEmail(itripUserVO);
++        return DtoUtil.returnDataSuccess("注册成功");
++    }
++
+ }
+ 
+ 
+Index: gotrip-user/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/pom.xml	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/pom.xml	(date 1552869072156)
+@@ -57,6 +57,24 @@
+             <version>1.0-SNAPSHOT</version>
+         </dependency>
+ 
++
++
++        <!--<dependency>
++            <groupId>org.apache.commons</groupId>
++            <artifactId>commons-email</artifactId>
++            <version>1.4</version>
++        </dependency>-->
++        <dependency>
++            <groupId>javax.mail</groupId>
++            <artifactId>mail</artifactId>
++            <version>1.4.7</version>
++        </dependency>
++
++     <!--   <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-mail</artifactId>
++        </dependency>-->
++
+     </dependencies>
+ 
+ 
+Index: gotrip-user/user-consumer/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/pom.xml	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/pom.xml	(date 1552735840591)
+@@ -25,6 +25,8 @@
+             <version>1.0-SNAPSHOT</version>
+         </dependency>
+ 
++
++
+     </dependencies>
+ 
+ 
+Index: gotrip-common/common-ext-utils/src/main/java/com/ytzl/gotrip/ext/utils/RedisUtils.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-common/common-ext-utils/src/main/java/com/ytzl/gotrip/ext/utils/RedisUtils.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-common/common-ext-utils/src/main/java/com/ytzl/gotrip/ext/utils/RedisUtils.java	(date 1552879615766)
+@@ -41,6 +41,15 @@
+         return true;
+     }
+ 
++    public boolean expire( String key, long seconds) {
++        return redisTemplate.execute((RedisCallback<Boolean>) redisConnection -> {
++            StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
++            byte keyByte[] = stringRedisSerializer.serialize(key);
++            redisConnection.expire(keyByte,seconds);
++            return true;
++        });
++    }
++
+     /**
+      * set key and value to redis
+      *
+@@ -49,7 +58,7 @@
+      * @param value
+      * @return
+      */
+-    public boolean set(final String key, final String value, final long seconds) {
++    public boolean set(final String key, final String value,final long seconds) {
+         return redisTemplate.execute((RedisCallback<Boolean>) redisConnection -> {
+             StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
+             byte keyByte[] = stringRedisSerializer.serialize(key);
+Index: gotrip-user/user-consumer/src/main/resources/application.yml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/src/main/resources/application.yml	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/src/main/resources/application.yml	(date 1552733360686)
+@@ -8,6 +8,22 @@
+   dubbo:
+     appname: user-consumer
+     registry: zookeeper://127.0.0.1:2181
++#  mail:
++#    # 发送邮件服务器
++#    host: smtp.qq.com
++#    # QQ邮箱
++#    username: 861024581@qq.com
++#    # 客户端授权码 wmmvfqpigiedbcba
++#    password: wmmvfqpigiedbcba
++#    default-encoding: utf-8
++#    port: 995
++#    properties:
++#      mail:
++#        smtp:
++#          auth: true
++#          socketFactory:
++#            class: javax.net.ssl.SSLSocketFactory
++#            port: 465
+ 
+ swagger:
+   basePackage: com.ytzl.gotrip.controller
+Index: gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/UserConsumerApp.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/UserConsumerApp.java	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-consumer/src/main/java/com/ytzl/gotrip/UserConsumerApp.java	(date 1552735865991)
+@@ -3,6 +3,8 @@
+ import com.alibaba.dubbo.spring.boot.annotation.EnableDubboConfiguration;
+ import org.springframework.boot.SpringApplication;
+ import org.springframework.boot.autoconfigure.SpringBootApplication;
++import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
++import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+ import org.springframework.context.annotation.EnableAspectJAutoProxy;
+ 
+ /**
+Index: gotrip-user/user-provider/src/main/resources/application.yml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gotrip-user/user-provider/src/main/resources/application.yml	(revision be654989d8011541b7c8f8d7e983c18b1f290030)
++++ gotrip-user/user-provider/src/main/resources/application.yml	(date 1552869038138)
+@@ -14,6 +14,34 @@
+     appname: user-provider
+     registry: zookeeper://127.0.0.1:2181
+     port: 28801
++  mail:
++    host: smtp.qq.com    # 发送邮件服务器
++    username: 861024581@qq.com  # QQ邮箱
++    password: wmmvfqpigiedbcba   # 客户端授权码 wmmvfqpigiedbcba
++    default-encoding: utf-8
++    port: 995
++    properties:
++      mail:
++        smtp:
++          auth: true
++          starttls:
++            enable: true
++            required: true
++          socketFactory:
++            class: javax.net.ssl.SSLSocketFactory
++            port: 465
++
++
++#            fallback: false
++#    protocol: smtp #发送邮件协议
++#    properties.mail.smtp.auth: true
++#    properties.mail.smtp.port: 465 #端口号465或587
++#    properties.mail.display.sendmail: Javen #可以任意
++#    properties.mail.display.sendname: Spring Boot Guide Email #可以任意
++#    properties.mail.smtp.starttls.enable: true
++#    properties.mail.smtp.starttls.required: true
++#    properties.mail.smtp.ssl.enable: true
++#    from: 861024581@qq.com #与上面的username保持一致
+ 
+ mybatis:
+   mapper-locations: mapper-xml/*Mapper.xml
+@@ -22,10 +50,14 @@
+   level:
+     com.ytzl.gotrip.mapper: debug
+ 
++
+ #    融联短信配置
+ sms:
+   serverIP: app.cloopen.com
+   serverPort: 8883
+   accountSid: 8aaf0708697b6beb01697ef4d5500115
+   accountToken: 85de131ae2c444f694563452b392a3ec
+-  appId: 8aaf0708697b6beb01697ef4d5c4011c
+\ No newline at end of file
++  appId: 8aaf0708697b6beb01697ef4d5c4011c
++
++
++
