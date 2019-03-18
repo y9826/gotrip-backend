@@ -64,10 +64,11 @@ public class GotripUserServiceImpl implements GotripUserService {
             throw new GotripException("手机号格式不正确",ErrorCode.AUTH_PARAMETER_ERROR);
         }
         // 判断用户是否存在
-        GotripUser user = this.findByUserCode(itripUserVO.getUserCode());
+        ckeckUsr(itripUserVO.getUserName());
+        /*GotripUser user = this.findByUserCode(itripUserVO.getUserCode());
         if (EmptyUtils.isNotEmpty(user)) {
             throw new GotripException("用户已存在！",ErrorCode.AUTH_USER_ALREADY_EXISTS);
-        }
+        }*/
         // 构建用户信息
         GotripUser gotripUser = new GotripUser();
         BeanUtils.copyProperties(itripUserVO,gotripUser);
@@ -99,10 +100,11 @@ public class GotripUserServiceImpl implements GotripUserService {
 
 
         // 验证用户是否存在
+        ckeckUsr(user);
         GotripUser gotripUser = this.findByUserCode(user);
-        if (EmptyUtils.isEmpty(gotripUser)) {
+        /*if (EmptyUtils.isEmpty(gotripUser)) {
             throw new GotripException("用户不存在！",ErrorCode.AUTH_PARAMETER_ERROR);
-        }
+        }*/
 
 
         // 获取redis中存储的短信验证码
@@ -138,11 +140,7 @@ public class GotripUserServiceImpl implements GotripUserService {
         if (!validEmail(itripUserVO.getUserCode())) {
             throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
         }
-        // 判断用户是否存在
-        GotripUser user = findByUserCode(itripUserVO.getUserCode());
-        if (EmptyUtils.isNotEmpty(user)) {
-            throw new GotripException("邮箱账号已存在！",ErrorCode.AUTH_PARAMETER_ERROR);
-        }
+
         // 构建用户信息
         GotripUser gotripUser = new GotripUser();
         BeanUtils.copyProperties(itripUserVO,gotripUser);
@@ -173,8 +171,8 @@ public class GotripUserServiceImpl implements GotripUserService {
             throw new GotripException("邮箱格式错误！",ErrorCode.AUTH_PARAMETER_ERROR);
         }
         // 判断用户是否存在
-        GotripUser gotripUser = findByUserCode(user);
-        if (EmptyUtils.isEmpty(gotripUser)) {
+       GotripUser gotripUser = findByUserCode(user);
+         if (EmptyUtils.isEmpty(gotripUser)) {
             throw new GotripException("邮箱账号不存在！",ErrorCode.AUTH_PARAMETER_ERROR);
         }
         // 获取redis中存储的短信验证码
@@ -186,13 +184,14 @@ public class GotripUserServiceImpl implements GotripUserService {
             throw new GotripException("激活码错误，请重新输入！",ErrorCode.AUTH_PARAMETER_ERROR);
         }
         // 激活用户
-        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_DISABLE); // 修改激活状态为1
+        gotripUser.setActivated(Constants.UserActivate.USER_ACTIVATE_ENABLE); // 修改激活状态为1
         gotripUser.setUserType(0); // 用户类型
         gotripUser.setFlatID(gotripUser.getId()); // 平台Id
         rpcGotripUserService.updateGotripUser(gotripUser);// 修改
 
         LOG.info("-------------->   用户[{}]激活成功！",user);
     }
+
 
     /**
      * 校验注册数据
@@ -217,6 +216,15 @@ public class GotripUserServiceImpl implements GotripUserService {
 
 
 
+    @Override
+    public void ckeckUsr(String name) throws Exception {
+        // 判断用户是否存在
+        GotripUser user = findByUserCode(name);
+        if (EmptyUtils.isNotEmpty(user)) {
+            throw new GotripException("用户已存在！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+    }
+
     /**			 *
      * 合法E-mail地址：
      * 1. 必须包含一个并且只有一个符号“@”
@@ -240,36 +248,6 @@ public class GotripUserServiceImpl implements GotripUserService {
         String regex="^1[356789]{1}\\d{9}$";
         return Pattern.compile(regex).matcher(phone).find();
     }
-
-
-
-    // 下面可删除--------------------------------------------测试部分
-
-   /* @Resource
-    MailSender mailSender;
-
-    public void sendMessageEmail(String to, String verifyCode) {
-        System.out.println("进入sendMessageEmail");
-        SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
-
-        String from = "861024581@qq.com";
-        String subject = "爱旅行：";
-        String content = "用户您好，验证码：" + verifyCode;
-
-        simpleMailMessage.setFrom(from);
-        simpleMailMessage.setTo(to);
-        simpleMailMessage.setSubject(subject);
-        simpleMailMessage.setText(content);
-        // mailSender
-
-        System.out.println("准备发送邮件");
-        mailSender.send(simpleMailMessage);
-        System.out.println("发送邮件成功");
-
-
-    }*/
-
-
 
 
 

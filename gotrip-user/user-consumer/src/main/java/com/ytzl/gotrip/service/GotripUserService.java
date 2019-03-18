@@ -7,7 +7,6 @@ import com.ytzl.gotrip.vo.userinfo.ItripUserVO;
 public interface GotripUserService {
 
 
-
     /**
      * 根据用户登陆账号查询用户信息
      *
@@ -46,4 +45,12 @@ public interface GotripUserService {
      * @param code 激活码
      */
     void validateEmail(String user, String code) throws Exception;
+
+
+    /**
+     * 用户是否存在
+     *
+     * @param name 用户名
+     */
+    void ckeckUsr(String name) throws Exception;
 }

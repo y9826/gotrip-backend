@@ -47,23 +47,31 @@ public class GotripUserController {
         return DtoUtil.returnDataSuccess("注册成功");
     }
 
-    @ApiOperation(value = "邮箱激活")
-    @PutMapping("/activate")
-    public Dto validateEmail(@ApiParam(value = "登录邮箱") @RequestParam String user,
-                             @ApiParam(value = "邮箱激活码") @RequestParam String code) throws Exception{
-        // 手机号激活
-        gotripUserService.validateEmail(user,code);
-        return DtoUtil.returnDataSuccess("激活成功");
-    }
-
     @ApiOperation(value = "邮箱号注册")
-    @PostMapping("/register")
-    public Dto registerByEmail(
+    @PostMapping("/doregister") //POST /api/doregister
+    public Dto doregister(
             @RequestBody ItripUserVO itripUserVO) throws Exception {
         System.out.println("进入邮箱注册Controller");
         gotripUserService.registerByEmail(itripUserVO);
         return DtoUtil.returnDataSuccess("注册成功");
     }
+
+    @ApiOperation(value = "邮箱激活")
+    @PutMapping("/activate")
+    public Dto activate(@ApiParam(value = "登录邮箱") @RequestParam String user,
+                             @ApiParam(value = "邮箱激活码") @RequestParam String code) throws Exception{
+        gotripUserService.validateEmail(user,code);
+        return DtoUtil.returnDataSuccess("激活成功");
+    }
+
+    @ApiOperation("验证是否以存在该用户名")
+    @GetMapping("/ckusr")
+    public Dto Ckusr(@ApiParam("被检查的用户名") String name) throws Exception {
+        gotripUserService.ckeckUsr(name);
+        return DtoUtil.returnDataSuccess("success");
+    }
+
+
 
 }
 
