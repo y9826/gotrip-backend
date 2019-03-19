@@ -10,12 +10,15 @@ public interface GotripUserLinkUserMapper {
 
 	public List<GotripUserLinkUser>	getGotripUserLinkUserListByMap(Map<String, Object> param)throws Exception;
 
+	public List<GotripUserLinkUser>	getGotripUserLinkUserListByIdOrLink(Map<String, Object> param)throws Exception;
+
 	public Integer getGotripUserLinkUserCountByMap(Map<String, Object> param)throws Exception;
 
 	public Integer insertGotripUserLinkUser(GotripUserLinkUser gotripUserLinkUser)throws Exception;
 
 	public Integer updateGotripUserLinkUser(GotripUserLinkUser gotripUserLinkUser)throws Exception;
 
-	public Integer deleteGotripUserLinkUserById(@Param(value = "id") Long id)throws Exception;
+	public Integer deleteGotripUserLinkUserById(@Param(value = "ids") Long[] ids) throws Exception;
+	//public Integer deleteGotripUserLinkUserById(@Param(value = "id") Long id)throws Exception;
 
 }

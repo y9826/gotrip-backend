@@ -50,6 +50,14 @@ public class RedisUtils {
         });
     }
 
+
+    public long ttl(String key) {
+        return redisTemplate.execute((RedisCallback<Long>) redisConnection -> {
+            StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
+            byte keyByte[] = stringRedisSerializer.serialize(key);
+            return redisConnection.ttl(keyByte);
+        });
+    }
     /**
      * set key and value to redis
      *

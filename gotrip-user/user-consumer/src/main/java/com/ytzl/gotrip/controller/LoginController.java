@@ -44,7 +44,6 @@ public class LoginController {
         // 构建返回结果
         ItripTokenVO tokenVO = new ItripTokenVO();
         tokenVO.setToken(token);
-        // 获取token的生成时间
         String currentTimeStr = token.split("-")[3];
         long currTime = new SimpleDateFormat("yyyyMMddHHmmss").parse(currentTimeStr).getTime();
         tokenVO.setGenTime(currTime);
@@ -55,7 +54,7 @@ public class LoginController {
 
 
     @ApiOperation("注销")
-    @GetMapping("logout")
+    @GetMapping("/logout")
     public Dto logout(@ApiParam(value = "令牌") @RequestHeader("token")String token,
                       @ApiParam(hidden = true) @RequestHeader(value = "user-agent") String userAgent) throws Exception{
         loginService.logout(token,userAgent);

@@ -89,4 +89,20 @@ public class GotripUserLinkUser implements Serializable {
         public  Integer getLinkIdCardType(){
             return this.linkIdCardType;
         }
+
+    @Override
+    public String toString() {
+        return "GotripUserLinkUser{" +
+                "id=" + id +
+                ", linkUserName='" + linkUserName + '\'' +
+                ", linkIdCard='" + linkIdCard + '\'' +
+                ", linkPhone='" + linkPhone + '\'' +
+                ", userId=" + userId +
+                ", creationDate=" + creationDate +
+                ", createdBy=" + createdBy +
+                ", modifyDate=" + modifyDate +
+                ", modifiedBy=" + modifiedBy +
+                ", linkIdCardType=" + linkIdCardType +
+                '}';
+    }
 }

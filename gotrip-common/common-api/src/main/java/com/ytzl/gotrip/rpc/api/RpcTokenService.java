@@ -52,4 +52,22 @@ public interface RpcTokenService {
      * @return 用户数据
      */
     public GotripUser getGotripUser(String token, String userAgent) throws Exception;
+
+
+    /**
+     * 验证token是否存在
+     * @param token token令牌
+     * @return true不存在
+     */
+    public boolean existsToken(String token);
+
+
+    /**
+     * 置换token
+     *
+     * @param token token令牌
+     * @param userAgent 浏览器标识
+     * @return 新的token
+     */
+    public String replaceToken(String token,String userAgent) throws Exception;
 }

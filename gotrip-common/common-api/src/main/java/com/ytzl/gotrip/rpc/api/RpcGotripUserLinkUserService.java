@@ -17,13 +17,15 @@ public interface RpcGotripUserLinkUserService {
 
     public List<GotripUserLinkUser>	getGotripUserLinkUserListByMap(Map<String, Object> param)throws Exception;
 
+    public List<GotripUserLinkUser>	getGotripUserLinkUserListByIdOrLink(Map<String, Object> param)throws Exception;
+
     public Integer getGotripUserLinkUserCountByMap(Map<String, Object> param)throws Exception;
 
     public Integer insertGotripUserLinkUser(GotripUserLinkUser gotripUserLinkUser)throws Exception;
 
     public Integer updateGotripUserLinkUser(GotripUserLinkUser gotripUserLinkUser)throws Exception;
 
-    public Integer deleteGotripUserLinkUserById(Long id)throws Exception;
+    public Integer deleteGotripUserLinkUserById(Long[] ids) throws Exception;
 
     public Page<GotripUserLinkUser> queryGotripUserLinkUserPageByMap(Map<String, Object> param, Integer pageNo, Integer pageSize)throws Exception;
 }

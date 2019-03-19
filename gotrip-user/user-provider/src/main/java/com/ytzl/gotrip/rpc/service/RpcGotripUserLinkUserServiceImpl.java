@@ -31,6 +31,11 @@ public class RpcGotripUserLinkUserServiceImpl implements RpcGotripUserLinkUserSe
     }
 
     @Override
+    public List<GotripUserLinkUser> getGotripUserLinkUserListByIdOrLink(Map<String, Object> param) throws Exception {
+        return gotripUserLinkUserMapper.getGotripUserLinkUserListByIdOrLink(param);
+    }
+
+    @Override
     public Integer getGotripUserLinkUserCountByMap(Map<String,Object> param)throws Exception{
         return gotripUserLinkUserMapper.getGotripUserLinkUserCountByMap(param);
     }
@@ -48,8 +53,8 @@ public class RpcGotripUserLinkUserServiceImpl implements RpcGotripUserLinkUserSe
     }
 
     @Override
-    public Integer deleteGotripUserLinkUserById(Long id)throws Exception{
-        return gotripUserLinkUserMapper.deleteGotripUserLinkUserById(id);
+    public Integer deleteGotripUserLinkUserById(Long[] ids)throws Exception{
+        return gotripUserLinkUserMapper.deleteGotripUserLinkUserById(ids);
     }
 
     @Override

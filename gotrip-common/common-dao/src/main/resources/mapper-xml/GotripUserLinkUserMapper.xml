@@ -149,13 +149,13 @@
                     <if test="userId != null and userId!=''">
                         userId=#{userId},
                     </if>
-                    <if test="creationDate != null and creationDate!=''">
+                    <if test="creationDate != null">
                         creationDate=#{creationDate},
                     </if>
                     <if test="createdBy != null and createdBy!=''">
                         createdBy=#{createdBy},
                     </if>
-                    <if test="modifyDate != null and modifyDate!=''">
+                    <if test="modifyDate != null ">
                         modifyDate=#{modifyDate},
                     </if>
                     <if test="modifiedBy != null and modifiedBy!=''">
@@ -168,6 +168,17 @@
     </update>
 
     <delete id="deleteGotripUserLinkUserById" parameterType="Long">
-        delete from gotrip_user_link_user where id = #{id}
+        delete from gotrip_user_link_user where id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </delete>
+
+
+    <select id="getGotripUserLinkUserListByIdOrLink" resultType="com.ytzl.gotrip.model.GotripUserLinkUser">
+        select * from gotrip_user_link_user  where userId=#{userId}
+            <if test="linkUserName!=null and linkUserName!='' ">
+                and linkUserName LIKE CONCAT('%',#{linkUserName},'%')
+            </if>
+    </select>
 </mapper>

@@ -4,12 +4,6 @@ import com.alibaba.dubbo.config.annotation.Service;
 import com.cloopen.rest.sdk.CCPRestSmsSDK;
 import com.ytzl.gotrip.properties.SmsProperties;
 import com.ytzl.gotrip.rpc.api.RpcSendMessageService;
-import com.ytzl.gotrip.test.yibu.EmailUtil;
-import com.ytzl.gotrip.utils.exception.GotripException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
-import org.springframework.mail.MailException;
-import org.springframework.mail.MailMessage;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -23,7 +17,6 @@ import java.util.Set;
 
 @Component
 @Service(interfaceClass = RpcSendMessageService.class)
-//@EnableAsync
 public class RpcSendMessageServiceIml implements RpcSendMessageService {
 
     @Resource

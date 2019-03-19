@@ -5,10 +5,7 @@ import com.alibaba.fastjson.JSON;
 import com.ytzl.gotrip.ext.utils.RedisUtils;
 import com.ytzl.gotrip.model.GotripUser;
 import com.ytzl.gotrip.rpc.api.RpcTokenService;
-import com.ytzl.gotrip.utils.common.Constants;
-import com.ytzl.gotrip.utils.common.DigestUtil;
-import com.ytzl.gotrip.utils.common.ErrorCode;
-import com.ytzl.gotrip.utils.common.UserAgentUtil;
+import com.ytzl.gotrip.utils.common.*;
 import com.ytzl.gotrip.utils.exception.GotripException;
 import javafx.scene.control.Toggle;
 import org.springframework.stereotype.Component;
@@ -93,5 +90,40 @@ public class RpcTokenServiceImpl implements RpcTokenService {
         String gotripUserJson  = (String) redisUtils.get(token);
 
         return JSON.parseObject(gotripUserJson,GotripUser.class);
+    }
+
+    @Override
+    public boolean existsToken(String token){
+        return !EmptyUtils.isEmpty(redisUtils.get(token));
+    }
+
+    /**
+     * 置换token
+     *
+     * @param token     旧的 token
+     * @param userAgent 浏览器标识
+     * @return 新的token
+     */
+    @Override
+    public String replaceToken(String token, String userAgent) throws Exception {
+
+        String newToken="";
+
+        // 得到对象信息
+        GotripUser gotripUser = this.getGotripUser(token, userAgent);
+        // 剩余的token时间
+        long ttl = redisUtils.ttl(token);
+        if(ttl>=-1){
+            // 生成新的Token
+            newToken = this.generateToken(gotripUser,userAgent);
+            // 缓存新的Token
+            this.saveToken(newToken,gotripUser);
+            // 1分钟后旧token消失
+            redisUtils.set(token, JSON.toJSONString(gotripUser),Constants.RedisExpire.DEFAULT_EXPIRE);
+
+        }else{
+            throw new GotripException("token过期时间异常，请稍后重试！",ErrorCode.AUTH_PARAMETER_ERROR);
+        }
+        return newToken;
     }
 }
